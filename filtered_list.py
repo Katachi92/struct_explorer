@@ -15,9 +15,12 @@ class STR_A:
     def __init__(self):
         self.vals = {
                     'a': STR_B(),
-                    'b': '',
+                    'b': 'some text',
                     'c': [1,2,3,4]
                 }
+
+    def __str__(self):
+        return self.vals
 
 
 class TreeInserter:
@@ -30,8 +33,31 @@ class TreeInserter:
             for node in val.vals:
                 self.insert_in_tree(val.vals[node], node, p)
         else:
-            p = self.tree.insert(parent, tk.END, text=name, values=val)
-        self.tree.set(p, 0, value=14)
+            p = self.tree.insert(parent, tk.END, text=name)
+
+    def get_val(val, items):
+        if val is not None:
+            print(f'getting val of {items}')
+            for node_name in items:
+                val = val.vals[node_name]
+                if not hasattr(val, 'vals'):
+                    return val
+        return ''
+
+    def get_tree_path(self, node_id):
+        items = []
+        while node_id != '':
+            items.append(self.tree.item(node_id)['text'])
+            node_id = self.tree.parent(node_id)
+        items.reverse()
+        return items
+
+    def insert_vals(self, str_val, pos, parent=None):
+        children = self.tree.get_children(parent)
+        for child in children:
+            value = TreeInserter.get_val(str_val, self.get_tree_path(child)[1:])
+            self.tree.set(child, pos, value)
+            self.insert_vals(str_val, pos, child)
 
 
 class Field:
@@ -66,8 +92,14 @@ class App(tk.Tk):
         self.tre = ttk.Treeview(columns=("field", "value"), show="tree")
         self.tre.column('#0', width=120, stretch=0)
         self.tre.column('#1', width=120, stretch=0)
-        TreeInserter(self.tre).insert_in_tree(STR_A(), 'STR_A')
-        self.tre.bind('<<TreeviewSelect>>', self.on_tre_selection_change)
+        inserter = TreeInserter(self.tre)
+        inserter.insert_in_tree(STR_A(), 'STR_A')
+        a = STR_A()
+        a.vals['b'] = 'nothing'
+        inserter.insert_vals(a, 0)
+        b = STR_A()
+        b.vals['b'] = 'wrong'
+        inserter.insert_vals(b, 0)
         self.tre.pack()
 
         self.selected_node = tk.StringVar()
@@ -78,10 +110,9 @@ class App(tk.Tk):
         self.selected_val.set(''.join([self.lbx.get(i) for i in self.lbx.curselection()]))
 
     def on_tre_selection_change(self, event):
-        node_id = self.tre.selection()[0]
-        node = self.tre.item(node_id)
-        p_node_txt = self.tre.item(self.tre.parent(node_id))['text']
-        self.selected_node.set(p_node_txt)
+        val = STR_A()
+        items = App.get_tree_path(self.tre, self.tre.selection()[0])
+        self.selected_node.set('.'.join(items) + ' = ' + str(App.get_val(val, items[2:])))
     
     def handle_change(self, *args):
         self.var.set(self.get_filtered_values(self.sv.get()))
